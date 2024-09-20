@@ -4,16 +4,23 @@ import { defaultGetFormatWithoutErrors } from "@easrng/import-meta-resolve/lib/g
 import { extname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readFileSync } from "node:fs";
-import { transform } from "@easrng/sucrase";
+import { coreTransform } from "@easrng/sucrase/core.js";
+import CJSImportTransformer from "@easrng/sucrase/transformers/CJSImportTransformer.js";
+import CJSImportProcessor from "@easrng/sucrase/CJSImportProcessor.js";
+import TypeScriptTransformer from "@easrng/sucrase/transformers/TypeScriptTransformer.js";
 
 addHook(
-  (code, filename) => transform(code, {
-    disableESTransforms: true,
-    transforms: ['imports', 'typescript'],
-    filePath: filename,
-    keepUnusedImports: true,
-    preserveDynamicImport: true
-  }).code,
+  (code, filename) =>
+    coreTransform(code, {
+      transformers: {
+        CJSImportTransformer,
+        CJSImportProcessor,
+        TypeScriptTransformer,
+      },
+      filePath: filename,
+      keepUnusedImports: true,
+      preserveDynamicImport: true,
+    }).code,
   {
     exts: [".ts", ".cts"],
     matcher(filename: string) {
@@ -25,7 +32,7 @@ addHook(
         }) === "typescript:commonjs"
       );
     },
-    ignoreNodeModules: false
+    ignoreNodeModules: false,
   }
 );
 

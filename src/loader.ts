@@ -3,7 +3,9 @@ import { defaultGetFormatWithoutErrors } from "@easrng/import-meta-resolve/lib/g
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import { readFile } from "node:fs/promises";
-import { transform } from "@easrng/sucrase";
+import { coreTransform } from "@easrng/sucrase/core.js";
+import ESMImportTransformer from "@easrng/sucrase/transformers/ESMImportTransformer.js";
+import TypeScriptTransformer from "@easrng/sucrase/transformers/TypeScriptTransformer.js";
 
 type ResolveHook = (
   specifier: string,
@@ -52,24 +54,26 @@ export const load: LoadHook = async (urlString, context, defaultLoad) => {
     if (format === "typescript:module") {
       const source = await readFile(url, "utf-8");
       return {
-        source: transform(source, {
-          disableESTransforms: true,
-          transforms: ["typescript"],
+        source: coreTransform(source, {
+          transformers: {
+            ESMImportTransformer,
+            TypeScriptTransformer,
+          },
           keepUnusedImports: true,
           injectCreateRequireForImportRequire: true,
           filePath: fileURLToPath(url),
         }).code,
         shortCircuit: true,
         format: "module",
-        responseURL: urlString
+        responseURL: urlString,
       };
     } else if (format === "typescript:commonjs") {
       return {
-        format: 'commonjs',
+        format: "commonjs",
         responseURL: urlString,
         source: undefined,
-        shortCircuit: true
-      }
+        shortCircuit: true,
+      };
     }
   }
   const result = await defaultLoad(urlString, context, defaultLoad);
