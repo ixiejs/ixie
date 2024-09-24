@@ -33,7 +33,7 @@ addHook(
       );
     },
     ignoreNodeModules: false,
-  }
+  },
 );
 
 register("./loader.js", {

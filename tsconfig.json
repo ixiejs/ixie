@@ -8,9 +8,9 @@
     "module": "NodeNext",
     "declaration": true,
     "sourceMap": true,
-    "outDir": "./dist",
     "inlineSources": true,
     "isolatedModules": true,
+    "verbatimModuleSyntax": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
@@ -21,11 +21,8 @@
     "strictPropertyInitialization": true,
     "noImplicitThis": true,
     "useUnknownInCatchVariables": true,
-    "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noEmit": true,
   },
-  "include": [
-    "./src"
-  ]
 }

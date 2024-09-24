@@ -13,7 +13,7 @@ type ResolveHook = (
     conditions: ("node" | "import")[];
     parentURL?: string;
   },
-  defaultResolve: ResolveHook
+  defaultResolve: ResolveHook,
 ) => Promise<{ url: string }>;
 
 type Format = "builtin" | "commonjs" | "json" | "module" | "wasm";
@@ -21,7 +21,7 @@ type Format = "builtin" | "commonjs" | "json" | "module" | "wasm";
 type LoadHook = (
   url: string,
   context: { format: Format },
-  defaultLoad: LoadHook
+  defaultLoad: LoadHook,
 ) => Promise<{
   source: string | SharedArrayBuffer | Uint8Array | undefined;
   format: Format;
@@ -32,7 +32,7 @@ type LoadHook = (
 export const resolve: ResolveHook = async (
   specifier,
   context,
-  defaultResolve
+  defaultResolve,
 ) => {
   try {
     return await defaultResolve(specifier, context, defaultResolve);
