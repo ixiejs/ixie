@@ -18,7 +18,6 @@ addHook(
         TypeScriptTransformer,
       },
       filePath: filename,
-      keepUnusedImports: true,
       preserveDynamicImport: true,
     }).code,
   {

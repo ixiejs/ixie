@@ -37,11 +37,15 @@ export const resolve: ResolveHook = async (
   try {
     return await defaultResolve(specifier, context, defaultResolve);
   } catch (e) {
-    const result = customDefaultResolve(specifier, fs, context);
-    return {
-      url: result.url,
-      format: result.format?.split(":")?.at(-1),
-    };
+    try {
+      const result = customDefaultResolve(specifier, fs, context);
+      return {
+        url: result.url,
+        format: result.format?.split(":")?.at(-1),
+      };
+    } catch {
+      throw e;
+    }
   }
 };
 export const load: LoadHook = async (urlString, context, defaultLoad) => {
@@ -59,7 +63,6 @@ export const load: LoadHook = async (urlString, context, defaultLoad) => {
             ESMImportTransformer,
             TypeScriptTransformer,
           },
-          keepUnusedImports: true,
           injectCreateRequireForImportRequire: true,
           filePath: fileURLToPath(url),
         }).code,

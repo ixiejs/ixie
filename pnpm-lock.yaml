@@ -12,8 +12,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       '@easrng/sucrase':
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.0.1
+        version: 2.0.1
       chalk:
         specifier: ^5.3.0
         version: 5.3.0
@@ -31,8 +31,8 @@ importers:
         specifier: ^22.5.5
         version: 22.5.5
       ixie:
-        specifier: ^0.0.6
-        version: 0.0.6
+        specifier: ^0.0.7
+        version: 0.0.7
       typescript:
         specifier: ^5.6.2
         version: 5.6.2
@@ -42,8 +42,8 @@ packages:
   '@easrng/import-meta-resolve@1.0.0':
     resolution: {integrity: sha512-LE0CpI1IU3XQdQ/w8TD25ZzglYuhXu83k6z3SpeYeIJKtvKyUBsXPX2J7TxiEBF9VCSurbnFUhgyFWZSZ87erg==}
 
-  '@easrng/sucrase@2.0.0':
-    resolution: {integrity: sha512-rfeuMClmJEpFZOZVuZtwHMsbpQu/i5TFKcam038hQB62bfSW/AhrdlVBX2LZFkFGQyYFbbSxGWskY29/8WTKtQ==}
+  '@easrng/sucrase@2.0.1':
+    resolution: {integrity: sha512-p95GtNPtuzsos1hC7W/KYQGxSHg3Ct8GQgdHi2oxwsu72ZlOfDLiC0ljohGBdPq0X+KHKgpMS54Oo15fMh11gw==}
     engines: {node: '>=16 || 14 >=14.17'}
 
   '@jridgewell/gen-mapping@0.3.5':
@@ -94,8 +94,8 @@ packages:
     resolution: {integrity: sha512-2nk+7SIVb14QrgXFHcm84tD4bKQz0RxPuMT8Ag5KPOq7J5fEmAg0UbXdTOSHqNuHSU28k55qnceesxXRZGzKWA==}
     engines: {node: '>=18'}
 
-  ixie@0.0.6:
-    resolution: {integrity: sha512-9ZQFDPXOgHBfF6uKcBoaSiZ9OAa8Hezd11qBpJPWW/u8VyVIeVI9NVVdiCfOtQMyUZxvzDW5aX8JsmIWRzO9xQ==}
+  ixie@0.0.7:
+    resolution: {integrity: sha512-Hm2Iw6MaSnpdlD3O1LDhKqUegdMWD3MeWBBzPAPKXJQvU0NucVT/5mEkA4DzKQPyjV6jQqB1kKnebPYN4AZfkg==}
     hasBin: true
 
   lines-and-columns@1.2.4:
@@ -129,7 +129,7 @@ snapshots:
 
   '@easrng/import-meta-resolve@1.0.0': {}
 
-  '@easrng/sucrase@2.0.0':
+  '@easrng/sucrase@2.0.1':
     dependencies:
       '@jridgewell/gen-mapping': 0.3.5
       lines-and-columns: 1.2.4
@@ -167,10 +167,10 @@ snapshots:
 
   get-east-asian-width@1.2.0: {}
 
-  ixie@0.0.6:
+  ixie@0.0.7:
     dependencies:
       '@easrng/import-meta-resolve': 1.0.0
-      '@easrng/sucrase': 2.0.0
+      '@easrng/sucrase': 2.0.1
       chalk: 5.3.0
       dedent: 1.5.3
       pirates: 4.0.6

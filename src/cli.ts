@@ -6,11 +6,13 @@ import { spawnSync } from "node:child_process";
 import wrapAnsi from "wrap-ansi";
 import dedent from "dedent";
 import { resolve } from "node:path";
+import { extname } from "node:path/posix";
 import * as fs from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import serveAuto from "./serve.js";
 import { type Config, createRequestHandler } from "./index.js";
 import { Readable } from "node:stream";
+import mimes from "./mimes.js";
 
 function colorLog(color: (_: string) => string, tag: string, message: string) {
   return (
@@ -116,11 +118,10 @@ async function loadConfig(): Promise<null | { config: Config; url: URL }> {
     }
   }
   if (!configPath) {
-    logErr("couldn't find an ixie config");
     return null;
   }
-  if (!("Bun" in globalThis)) await import("./register.js");
   try {
+    if (!("Bun" in globalThis)) await import("./register.js");
     const url = pathToFileURL(configPath);
     const { default: configDefinition } = await import(url.href);
     const config: unknown = await (typeof configDefinition === "function"
@@ -137,17 +138,32 @@ async function loadConfig(): Promise<null | { config: Config; url: URL }> {
       config: config as Config,
       url,
     };
-  } catch (e) {
-    logErr(`failed to load your ixie config at ${configPath}:\n${e}`);
-    return null;
+  } catch (error) {
+    throw {
+      configPath,
+      error,
+    };
   }
 }
 
 const commands: Record<string, (argv: string[]) => number | Promise<number>> = {
   run,
   async dev() {
-    const config_ = await loadConfig();
-    if (!config_) return 1;
+    let config_: { config: Config; url: URL } = {
+      config: {},
+      url: pathToFileURL(process.cwd() + "/"),
+    };
+    try {
+      const loaded = await loadConfig();
+      if (loaded) {
+        config_ = loaded;
+      } else {
+        logWarn("couldn't find an ixie config, using defaults + . as base");
+      }
+    } catch (e: any) {
+      logErr(`failed to load your ixie config at ${e.configPath}:\n${e.error}`);
+      return 1;
+    }
     const { config, url: configURL } = config_;
     const address = await serveAuto({
       fetch: createRequestHandler(
@@ -175,6 +191,8 @@ const commands: Record<string, (argv: string[]) => number | Promise<number>> = {
             "Last-Modified": stat.mtime.toUTCString(),
             ETag: `W/"${stat.size}-${stat.mtime.getTime()}"`,
           });
+          const mime = mimes[extname(url.pathname).slice(1)];
+          if (mime) headers.set("Content-Type", mime);
           if (reqHeaders?.get("if-none-match") === headers.get("ETag")) {
             return new Response(null, { status: 304 });
           }
@@ -234,7 +252,7 @@ const commands: Record<string, (argv: string[]) => number | Promise<number>> = {
           }
         },
       ),
-      ...config.serve,
+      ...(config.serve || {}),
     });
     process.stdout.write(
       colorLog(chalk.magenta, "ixie", "listening at " + address.url),

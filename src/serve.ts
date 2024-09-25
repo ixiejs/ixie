@@ -125,55 +125,49 @@ const serveNode: ServeFunction = async (options) => {
         (resolve) => (readyResolve = resolve),
       );
       const server = new nodeHttp.Server((req, res) => {
-        res.on("error", (error) => req.emit("error", error));
-        req.on("error", (error) => {
+        const handleError = (error: unknown) => {
+          if (!error) return;
           console.error("error", error);
-          if (res.writable && !res.headersSent) {
+          if (res.writable && !res.headersSent && req.readable) {
             res.writeHead(500, ["content-type", "text/plain"]);
             res.write("server error");
             res.end();
             console.error(error);
           }
-        });
+        };
+        res.on("error", handleError);
+        req.on("error", handleError);
         try {
           const headers = new Headers();
           for (let i = 0; i < req.rawHeaders.length; i += 2) {
             headers.append(req.rawHeaders[i]!, req.rawHeaders[i + 1]!);
           }
+          const stream = nodeStream.Readable.toWeb(req);
           const request = new Request(address.url + req.url, {
             headers,
             body:
               req.method === "GET" || req.method === "HEAD"
                 ? undefined
-                : (nodeStream.Readable.toWeb(req) as any),
+                : (stream as any),
             method: req.method,
           });
           Promise.resolve()
             .then(() => options.fetch(request))
-            .then(
-              (response) => {
-                if (res.headersSent) return;
-                res.writeHead(
-                  response.status,
-                  response.statusText,
-                  [...response.headers.entries()].flat(),
-                );
-                if (response.body) {
-                  nodeStream.pipeline(
-                    nodeStream.Readable.fromWeb(response.body as any),
-                    res,
-                    (error) => {
-                      if (error) req.emit("error", error);
-                    },
-                  );
-                } else {
-                  res.end();
-                }
-              },
-              (error) => req.emit("error", error),
-            );
+            .then((response) => {
+              if (res.headersSent) return;
+              res.writeHead(
+                response.status,
+                response.statusText,
+                [...response.headers.entries()].flat(),
+              );
+              if (response.body) {
+                nodeStream.Readable.fromWeb(response.body as any).pipe(res);
+              } else {
+                res.end();
+              }
+            }, handleError);
         } catch (error) {
-          req.emit("error", error);
+          handleError(error);
         }
       });
       server.listen(address.port, address.hostname, () => {
