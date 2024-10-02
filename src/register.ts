@@ -25,7 +25,7 @@ addHook(
     matcher(filename: string) {
       if (extname(filename) === ".cts") return true;
       return (
-        defaultGetFormatWithoutErrors(pathToFileURL(filename), {
+        defaultGetFormatWithoutErrors(pathToFileURL(filename) as any, {
           parentURL: "",
           readFileSync,
         }) === "typescript:commonjs"

@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "experimentalDecorators": false,
     "emitDecoratorMetadata": false,
     "useDefineForClassFields": true,
     "module": "NodeNext",
     "declaration": true,
     "sourceMap": true,
+    "declarationMap": true,
     "inlineSources": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,

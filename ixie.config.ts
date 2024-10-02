@@ -1,4 +1,5 @@
 import { defineConfig } from "ixie";
 export default defineConfig({
-  webRoot: "./web",
+  publicDir: "./web/public",
+  sourceDir: "./web/src"
 });

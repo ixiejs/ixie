@@ -49,8 +49,8 @@ function help(stream: WriteStream) {
         .map((e) => "      " + e)
         .join("\n")
     }
-  `,
-    ),
+  `
+    )
   );
 }
 
@@ -70,8 +70,8 @@ function run(argv: string[], env?: Record<string, string>): number {
         dedent`
           usage:
             ixie run <file> [args...]
-        `,
-      ),
+        `
+      )
     );
   }
   if (helpAliases[argv[0]!] === "help") {
@@ -100,6 +100,119 @@ function run(argv: string[], env?: Record<string, string>): number {
   );
 }
 
+async function serve(): Promise<number> {
+  let config_: { config: Config; url: URL } = {
+    config: {},
+    url: pathToFileURL(process.cwd() + "/") as any,
+  };
+  try {
+    const loaded = await loadConfig();
+    if (loaded) {
+      config_ = loaded;
+    } else {
+      logWarn("couldn't find an ixie config, using defaults + . as base");
+    }
+  } catch (e: any) {
+    logErr(`failed to load your ixie config at ${e.configPath}:\n${e.error}`);
+    return 1;
+  }
+  const { config, url: configURL } = config_;
+  const address = await serveAuto({
+    fetch: await createRequestHandler(
+      configURL,
+      config,
+      fs,
+      async (url, reqHeaders, hitStatus = 200) => {
+        let path = fileURLToPath(url);
+        let stat;
+        try {
+          stat = await fs.promises.stat(path);
+          if (stat.isDirectory()) {
+            url.pathname = url.pathname.replace(/\/$/, "") + "/index.html";
+            path = fileURLToPath(url);
+            stat = await fs.promises.stat(path);
+          }
+          if (!stat.isFile()) {
+            throw new Error();
+          }
+        } catch (e) {
+          throw new Error("file not found");
+        }
+        const headers = new Headers({
+          "Content-Length": "" + stat.size,
+          "Last-Modified": stat.mtime.toUTCString(),
+          ETag: `W/"${stat.size}-${stat.mtime.getTime()}"`,
+        });
+        const mime = mimes[extname(url.pathname).slice(1)];
+        if (mime) headers.set("Content-Type", mime);
+        if (reqHeaders?.get("if-none-match") === headers.get("ETag")) {
+          return new Response(null, { status: 304 });
+        }
+        const opts = {
+          code: hitStatus,
+          start: 0,
+          end: Infinity,
+          range: false,
+        };
+
+        if (reqHeaders?.has("range")) {
+          opts.code = 206;
+          let [x, y] = reqHeaders
+            .get("range")!
+            .replace("bytes=", "")
+            .split("-");
+          let end = (opts.end = parseInt(y!, 10) || stat.size - 1);
+          let start = (opts.start = parseInt(x!, 10) || 0);
+
+          if (start >= stat.size || end >= stat.size) {
+            headers.set("Content-Range", `bytes */${stat.size}`);
+            return new Response(null, {
+              headers: headers,
+              status: 416,
+            });
+          }
+
+          headers.set("Content-Range", `bytes ${start}-${end}/${stat.size}`);
+          headers.set("Content-Length", "" + (end - start + 1));
+          headers.set("Accept-Ranges", "bytes");
+          opts.range = true;
+        }
+
+        if ("Bun" in globalThis) {
+          let file = (
+            globalThis as unknown as { Bun: { file(path: string): Blob } }
+          ).Bun.file(path);
+          if (opts.range) file = file.slice(opts.start, opts.end);
+          const response = new Response(file, {
+            headers,
+            status: opts.code,
+          });
+          return response;
+        } else {
+          return new Response(
+            Readable.toWeb(
+              fs.createReadStream(
+                path,
+                opts.range ? { start: opts.start, end: opts.end } : {}
+              )
+            ) as any,
+            {
+              headers,
+              status: opts.code,
+            }
+          );
+        }
+      }
+    ),
+    ...(config.serve || {}),
+  });
+  process.stdout.write(
+    colorLog(chalk.magenta, "ixie", "listening at " + address.url)
+  );
+
+  return 0;
+}
+
 async function loadConfig(): Promise<null | { config: Config; url: URL }> {
   let configPath: string | undefined;
   {
@@ -122,7 +235,7 @@ async function loadConfig(): Promise<null | { config: Config; url: URL }> {
   }
   try {
     if (!("Bun" in globalThis)) await import("./register.js");
-    const url = pathToFileURL(configPath);
+    const url = pathToFileURL(configPath) as URL;
     const { default: configDefinition } = await import(url.href);
     const config: unknown = await (typeof configDefinition === "function"
       ? configDefinition()
@@ -130,9 +243,7 @@ async function loadConfig(): Promise<null | { config: Config; url: URL }> {
     if (config === null || typeof config !== "object")
       throw new Error(
         "expected an object as the config, got " +
-          (typeof config === "string"
-            ? JSON.stringify(config)
-            : String(config)),
+          (typeof config === "string" ? JSON.stringify(config) : String(config))
       );
     return {
       config: config as Config,
@@ -148,118 +259,7 @@ async function loadConfig(): Promise<null | { config: Config; url: URL }> {
 
 const commands: Record<string, (argv: string[]) => number | Promise<number>> = {
   run,
-  async dev() {
-    let config_: { config: Config; url: URL } = {
-      config: {},
-      url: pathToFileURL(process.cwd() + "/"),
-    };
-    try {
-      const loaded = await loadConfig();
-      if (loaded) {
-        config_ = loaded;
-      } else {
-        logWarn("couldn't find an ixie config, using defaults + . as base");
-      }
-    } catch (e: any) {
-      logErr(`failed to load your ixie config at ${e.configPath}:\n${e.error}`);
-      return 1;
-    }
-    const { config, url: configURL } = config_;
-    const address = await serveAuto({
-      fetch: createRequestHandler(
-        configURL,
-        config,
-        fs,
-        async (url, reqHeaders, hitStatus = 200) => {
-          let path = fileURLToPath(url);
-          let stat;
-          try {
-            stat = await fs.promises.stat(path);
-            if (stat.isDirectory()) {
-              url.pathname = url.pathname.replace(/\/$/, "") + "/index.html";
-              path = fileURLToPath(url);
-              stat = await fs.promises.stat(path);
-            }
-            if (!stat.isFile()) {
-              throw new Error();
-            }
-          } catch (e) {
-            throw new Error("file not found");
-          }
-          const headers = new Headers({
-            "Content-Length": "" + stat.size,
-            "Last-Modified": stat.mtime.toUTCString(),
-            ETag: `W/"${stat.size}-${stat.mtime.getTime()}"`,
-          });
-          const mime = mimes[extname(url.pathname).slice(1)];
-          if (mime) headers.set("Content-Type", mime);
-          if (reqHeaders?.get("if-none-match") === headers.get("ETag")) {
-            return new Response(null, { status: 304 });
-          }
-          const opts = {
-            code: hitStatus,
-            start: 0,
-            end: Infinity,
-            range: false,
-          };
-
-          if (reqHeaders?.has("range")) {
-            opts.code = 206;
-            let [x, y] = reqHeaders
-              .get("range")!
-              .replace("bytes=", "")
-              .split("-");
-            let end = (opts.end = parseInt(y!, 10) || stat.size - 1);
-            let start = (opts.start = parseInt(x!, 10) || 0);
-
-            if (start >= stat.size || end >= stat.size) {
-              headers.set("Content-Range", `bytes */${stat.size}`);
-              return new Response(null, {
-                headers: headers,
-                status: 416,
-              });
-            }
-
-            headers.set("Content-Range", `bytes ${start}-${end}/${stat.size}`);
-            headers.set("Content-Length", "" + (end - start + 1));
-            headers.set("Accept-Ranges", "bytes");
-            opts.range = true;
-          }
-
-          if ("Bun" in globalThis) {
-            let file = (
-              globalThis as unknown as { Bun: { file(path: string): Blob } }
-            ).Bun.file(path);
-            if (opts.range) file = file.slice(opts.start, opts.end);
-            const response = new Response(file, {
-              headers,
-              status: opts.code,
-            });
-            return response;
-          } else {
-            return new Response(
-              Readable.toWeb(
-                fs.createReadStream(
-                  path,
-                  opts.range ? { start: opts.start, end: opts.end } : {},
-                ),
-              ),
-              {
-                headers,
-                status: opts.code,
-              },
-            );
-          }
-        },
-      ),
-      ...(config.serve || {}),
-    });
-    process.stdout.write(
-      colorLog(chalk.magenta, "ixie", "listening at " + address.url),
-    );
-
-    return 0;
-  },
+  serve,
   async build() {
     const config = await loadConfig();
     if (!config) return 1;
@@ -273,7 +273,7 @@ const commands: Record<string, (argv: string[]) => number | Promise<number>> = {
   },
 };
 
-const mainAliases: Record<string, string> = { ...helpAliases };
+const mainAliases: Record<string, string> = { ...helpAliases, dev: "serve" };
 
 (async function main() {
   let [command, ...commandArgv] = process.argv.slice(2);
