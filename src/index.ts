@@ -2,6 +2,7 @@ export type Config = {
   serve?: {
     port?: number;
     hostname?: string;
+    signal?: AbortSignal;
   };
   publicDir?: string;
   sourceDir?: string;
@@ -31,7 +32,7 @@ const unwebify = (url: URL, sourceDir: URL, baseDir: URL) => {
     }
     const unsafeFile = new URL(
       "../".repeat(count) + seggs.join("/"),
-      sourceDir
+      sourceDir,
     );
     if (unsafeFile.href.startsWith(baseDir.href)) {
       // safe!
@@ -48,7 +49,7 @@ export const createRequestHandler = async (
   configURL: URL,
   config: Config,
   fs: import("@easrng/import-meta-resolve/lib/resolve.js").FS,
-  readFile: (url: URL, headers?: Headers, status?: number) => Promise<Response>
+  readFile: (url: URL, headers?: Headers, status?: number) => Promise<Response>,
 ) => {
   const publicDir = new URL(config.publicDir || ".", configURL);
   const sourceDir = new URL(config.sourceDir || ".", configURL);
@@ -62,21 +63,26 @@ export const createRequestHandler = async (
         const parent = unwebify(
           new URL(url.searchParams.get("base")!, "https://x"),
           sourceDir,
-          baseDir
+          baseDir,
         );
         return dynamic(
           parent,
           sourceDir,
           fs,
-          url.searchParams.get("specifier")!
+          url.searchParams.get("specifier")!,
         );
       } else if (url.pathname.startsWith("/@cjsInit/")) {
-        const specifier = JSON.stringify(url.pathname.slice("/@cjsInit".length))
-        return new Response(`export * from ${specifier};\nexport { default } from ${specifier};\nimport { __cjsInit } from ${specifier};\nif(__cjsInit) __cjsInit();`, {
-          headers: {
-            'content-type': 'text/javascript'
-          }
-        })
+        const specifier = JSON.stringify(
+          url.pathname.slice("/@cjsInit".length),
+        );
+        return new Response(
+          `export * from ${specifier};\nexport { default } from ${specifier};\nimport { __cjsInit } from ${specifier};\nif(__cjsInit) __cjsInit();`,
+          {
+            headers: {
+              "content-type": "text/javascript",
+            },
+          },
+        );
       }
     };
     const sourceServe = async () => {
@@ -88,7 +94,7 @@ export const createRequestHandler = async (
           "unauthorized: you can only access files in the directory your ixie config is in or below!",
           {
             status: 403,
-          }
+          },
         );
       }
       let response: Response;
@@ -103,7 +109,7 @@ export const createRequestHandler = async (
       try {
         return await readFile(
           new URL("." + url.pathname, publicDir),
-          request.headers
+          request.headers,
         );
       } catch {}
     };
@@ -122,7 +128,7 @@ export const createRequestHandler = async (
         return await readFile(
           new URL("404.html", publicDir),
           request.headers,
-          404
+          404,
         );
       } catch {}
     };
@@ -144,3 +150,21 @@ export const createRequestHandler = async (
     return new Response("file not found", { status: 404 });
   };
 };
+
+export async function createServer(
+  config: Config,
+  base?: URL,
+): ReturnType<typeof import("./serve.js").default> {
+  const [{ pathToFileURL }, process, fs, { default: serveAuto, readFile }] =
+    await Promise.all([
+      import("node:url"),
+      import("node:process"),
+      import("node:fs"),
+      import("./serve.js"),
+    ]);
+  base = base || (pathToFileURL(process.cwd() + "/") as unknown as URL);
+  return serveAuto({
+    fetch: await createRequestHandler(base, config, fs, readFile),
+    ...(config.serve || {}),
+  });
+}

@@ -6,13 +6,10 @@ import { spawnSync } from "node:child_process";
 import wrapAnsi from "wrap-ansi";
 import dedent from "dedent";
 import { resolve } from "node:path";
-import { extname } from "node:path/posix";
 import * as fs from "node:fs";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import serveAuto from "./serve.js";
+import { pathToFileURL } from "node:url";
+import serveAuto, { readFile } from "./serve.js";
 import { type Config, createRequestHandler } from "./index.js";
-import { Readable } from "node:stream";
-import mimes from "./mimes.js";
 
 function colorLog(color: (_: string) => string, tag: string, message: string) {
   return (
@@ -49,8 +46,8 @@ function help(stream: WriteStream) {
         .map((e) => "      " + e)
         .join("\n")
     }
-  `
-    )
+  `,
+    ),
   );
 }
 
@@ -70,8 +67,8 @@ function run(argv: string[], env?: Record<string, string>): number {
         dedent`
           usage:
             ixie run <file> [args...]
-        `
-      )
+        `,
+      ),
     );
   }
   if (helpAliases[argv[0]!] === "help") {
@@ -118,96 +115,11 @@ async function serve(): Promise<number> {
   }
   const { config, url: configURL } = config_;
   const address = await serveAuto({
-    fetch: await createRequestHandler(
-      configURL,
-      config,
-      fs,
-      async (url, reqHeaders, hitStatus = 200) => {
-        let path = fileURLToPath(url);
-        let stat;
-        try {
-          stat = await fs.promises.stat(path);
-          if (stat.isDirectory()) {
-            url.pathname = url.pathname.replace(/\/$/, "") + "/index.html";
-            path = fileURLToPath(url);
-            stat = await fs.promises.stat(path);
-          }
-          if (!stat.isFile()) {
-            throw new Error();
-          }
-        } catch (e) {
-          throw new Error("file not found");
-        }
-        const headers = new Headers({
-          "Content-Length": "" + stat.size,
-          "Last-Modified": stat.mtime.toUTCString(),
-          ETag: `W/"${stat.size}-${stat.mtime.getTime()}"`,
-        });
-        const mime = mimes[extname(url.pathname).slice(1)];
-        if (mime) headers.set("Content-Type", mime);
-        if (reqHeaders?.get("if-none-match") === headers.get("ETag")) {
-          return new Response(null, { status: 304 });
-        }
-        const opts = {
-          code: hitStatus,
-          start: 0,
-          end: Infinity,
-          range: false,
-        };
-
-        if (reqHeaders?.has("range")) {
-          opts.code = 206;
-          let [x, y] = reqHeaders
-            .get("range")!
-            .replace("bytes=", "")
-            .split("-");
-          let end = (opts.end = parseInt(y!, 10) || stat.size - 1);
-          let start = (opts.start = parseInt(x!, 10) || 0);
-
-          if (start >= stat.size || end >= stat.size) {
-            headers.set("Content-Range", `bytes */${stat.size}`);
-            return new Response(null, {
-              headers: headers,
-              status: 416,
-            });
-          }
-
-          headers.set("Content-Range", `bytes ${start}-${end}/${stat.size}`);
-          headers.set("Content-Length", "" + (end - start + 1));
-          headers.set("Accept-Ranges", "bytes");
-          opts.range = true;
-        }
-
-        if ("Bun" in globalThis) {
-          let file = (
-            globalThis as unknown as { Bun: { file(path: string): Blob } }
-          ).Bun.file(path);
-          if (opts.range) file = file.slice(opts.start, opts.end);
-          const response = new Response(file, {
-            headers,
-            status: opts.code,
-          });
-          return response;
-        } else {
-          return new Response(
-            Readable.toWeb(
-              fs.createReadStream(
-                path,
-                opts.range ? { start: opts.start, end: opts.end } : {}
-              )
-            ) as any,
-            {
-              headers,
-              status: opts.code,
-            }
-          );
-        }
-      }
-    ),
+    fetch: await createRequestHandler(configURL, config, fs, readFile),
     ...(config.serve || {}),
   });
   process.stdout.write(
-    colorLog(chalk.magenta, "ixie", "listening at " + address.url)
+    colorLog(chalk.magenta, "ixie", "listening at " + address.url),
   );
 
   return 0;
@@ -243,7 +155,9 @@ async function loadConfig(): Promise<null | { config: Config; url: URL }> {
     if (config === null || typeof config !== "object")
       throw new Error(
         "expected an object as the config, got " +
-          (typeof config === "string" ? JSON.stringify(config) : String(config))
+          (typeof config === "string"
+            ? JSON.stringify(config)
+            : String(config)),
       );
     return {
       config: config as Config,

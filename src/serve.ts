@@ -1,3 +1,9 @@
+import { extname } from "node:path/posix";
+import { Readable } from "node:stream";
+import mimes from "./mimes.js";
+import { fileURLToPath } from "node:url";
+import fs from "node:fs";
+
 type ServeOptions = {
   fetch: (req: Request) => PromiseLike<Response> | Response;
   port?: number;
@@ -229,3 +235,86 @@ const serveAuto: ServeFunction = (options) => {
 };
 
 export default serveAuto;
+
+export const readFile = async (
+  url: URL,
+  reqHeaders?: Headers,
+  hitStatus = 200,
+) => {
+  let path = fileURLToPath(url);
+  let stat;
+  try {
+    stat = await fs.promises.stat(path);
+    if (stat.isDirectory()) {
+      url.pathname = url.pathname.replace(/\/$/, "") + "/index.html";
+      path = fileURLToPath(url);
+      stat = await fs.promises.stat(path);
+    }
+    if (!stat.isFile()) {
+      throw new Error();
+    }
+  } catch (e) {
+    throw new Error("file not found");
+  }
+  const headers = new Headers({
+    "Content-Length": "" + stat.size,
+    "Last-Modified": stat.mtime.toUTCString(),
+    ETag: `W/"${stat.size}-${stat.mtime.getTime()}"`,
+  });
+  const mime = mimes[extname(url.pathname).slice(1)];
+  if (mime) headers.set("Content-Type", mime);
+  if (reqHeaders?.get("if-none-match") === headers.get("ETag")) {
+    return new Response(null, { status: 304 });
+  }
+  const opts = {
+    code: hitStatus,
+    start: 0,
+    end: Infinity,
+    range: false,
+  };
+
+  if (reqHeaders?.has("range")) {
+    opts.code = 206;
+    let [x, y] = reqHeaders.get("range")!.replace("bytes=", "").split("-");
+    let end = (opts.end = parseInt(y!, 10) || stat.size - 1);
+    let start = (opts.start = parseInt(x!, 10) || 0);
+
+    if (start >= stat.size || end >= stat.size) {
+      headers.set("Content-Range", `bytes */${stat.size}`);
+      return new Response(null, {
+        headers: headers,
+        status: 416,
+      });
+    }
+
+    headers.set("Content-Range", `bytes ${start}-${end}/${stat.size}`);
+    headers.set("Content-Length", "" + (end - start + 1));
+    headers.set("Accept-Ranges", "bytes");
+    opts.range = true;
+  }
+
+  if ("Bun" in globalThis) {
+    let file = (
+      globalThis as unknown as { Bun: { file(path: string): Blob } }
+    ).Bun.file(path);
+    if (opts.range) file = file.slice(opts.start, opts.end);
+    const response = new Response(file, {
+      headers,
+      status: opts.code,
+    });
+    return response;
+  } else {
+    return new Response(
+      Readable.toWeb(
+        fs.createReadStream(
+          path,
+          opts.range ? { start: opts.start, end: opts.end } : {},
+        ),
+      ) as any,
+      {
+        headers,
+        status: opts.code,
+      },
+    );
+  }
+};

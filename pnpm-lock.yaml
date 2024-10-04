@@ -12,8 +12,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       '@easrng/sucrase':
-        specifier: ^2.0.2
-        version: 2.0.2
+        specifier: ^2.0.5
+        version: 2.0.5
       '@endo/cjs-module-analyzer':
         specifier: ^1.0.7
         version: 1.0.7
@@ -48,8 +48,8 @@ packages:
   '@easrng/import-meta-resolve@1.0.0':
     resolution: {integrity: sha512-LE0CpI1IU3XQdQ/w8TD25ZzglYuhXu83k6z3SpeYeIJKtvKyUBsXPX2J7TxiEBF9VCSurbnFUhgyFWZSZ87erg==}
 
-  '@easrng/sucrase@2.0.2':
-    resolution: {integrity: sha512-pYocn4x2etVlfPO7ZUKh0XnJBz5M+/WQflTcL7NGSv7om6WG5NMS++blyEoVCm2TEgSPQ2PIjJ10eDCD3h6hZA==}
+  '@easrng/sucrase@2.0.5':
+    resolution: {integrity: sha512-Vb9GAJQD8Z0R74gEzintDr+dHNevvSYJGlbSULculo0npfORBPr92uu9kyjzYkkyU25LWl1E1Uyd9VTqhgfXFg==}
     engines: {node: '>=16 || 14 >=14.17'}
 
   '@endo/cjs-module-analyzer@1.0.7':
@@ -141,7 +141,7 @@ snapshots:
 
   '@easrng/import-meta-resolve@1.0.0': {}
 
-  '@easrng/sucrase@2.0.2':
+  '@easrng/sucrase@2.0.5':
     dependencies:
       '@jridgewell/gen-mapping': 0.3.5
       lines-and-columns: 1.2.4
@@ -186,7 +186,7 @@ snapshots:
   ixie@0.0.9:
     dependencies:
       '@easrng/import-meta-resolve': 1.0.0
-      '@easrng/sucrase': 2.0.2
+      '@easrng/sucrase': 2.0.5
       chalk: 5.3.0
       dedent: 1.5.3
       pirates: 4.0.6

@@ -16,10 +16,10 @@ const HTMLRewriter = HTMLRewriterWrapper(
   initHTMLRewriter(
     wasmURL.startsWith("file:")
       ? import("node:fs/promises").then(({ readFile }) =>
-          readFile(new URL(wasmURL))
+          readFile(new URL(wasmURL)),
         )
-      : wasmURL
-  )
+      : wasmURL,
+  ),
 );
 
 const webify = (url: URL, base: URL) => {
@@ -36,7 +36,7 @@ export async function dynamic(
   parent: URL,
   base: URL,
   fs: FS,
-  specifier: string
+  specifier: string,
 ) {
   try {
     const resolved = defaultResolve(specifier, fs, {
@@ -63,7 +63,7 @@ export async function dynamic(
         headers: {
           "content-type": "text/javascript",
         },
-      }
+      },
     );
   }
 }
@@ -72,7 +72,7 @@ export async function transform(
   file: URL,
   base: URL,
   response: Response,
-  fs: FS
+  fs: FS,
 ) {
   if (response.status !== 200) return response;
   switch (path.extname(file.pathname)) {
@@ -89,7 +89,7 @@ export async function transform(
                   let url = new URL(
                     defaultResolve(src, fs, {
                       parentURL: file.href,
-                    }).url
+                    }).url,
                   );
                   element.setAttribute("src", webify(url, base));
                 }
@@ -99,10 +99,10 @@ export async function transform(
                 "<script>throw new Error(" +
                   JSON.stringify("failed to resolve '" + src + "'").replace(
                     "/",
-                    "\\/"
+                    "\\/",
                   ) +
                   ")</script>",
-                { html: true }
+                { html: true },
               );
             }
           },
@@ -135,7 +135,7 @@ export async function transform(
             : script;
         const cjsInfo = analyzeCommonJS(commonjs);
         const exports: string[] = cjsInfo.exports.filter(
-          (name) => name !== "default" && name !== "__cjsInit"
+          (name) => name !== "default" && name !== "__cjsInit",
         );
         const requires: string[] = cjsInfo.requires;
         const exportsList = exports.length ? "," + exports.join(",") : "";
@@ -145,7 +145,7 @@ export async function transform(
         const requireImports = requires.map((name, id) => {
           try {
             return `import{default as r$${id},__cjsInit as i$${id}} from ${JSON.stringify(
-              webify(url.pathToFileURL(fileRequire.resolve(name)) as any, base)
+              webify(url.pathToFileURL(fileRequire.resolve(name)) as any, base),
             )};`;
           } catch {
             return "";
@@ -153,11 +153,11 @@ export async function transform(
         });
         result =
           `${requireImports.join(
-            ""
+            "",
           )}let global=globalThis,exports={},module=Object.defineProperty({},"exports",{get(){return exports},set(value){exports=value}}),require=(name)=>{let m={${requires
             .map((name, id) => `${JSON.stringify(name)}:[r$${id},i$${id}]`)
             .join(
-              ","
+              ",",
             )}}[name];if(!m)throw new Error('module '+name+' not loaded');m[1]?.();return m[0]}${exportsList};export{exports as default${exportsList}};export function __cjsInit(){__cjsInit=undefined;(function(__cjsInit${exportsList}${requires
             .map((_, i) => (requireImports[i] ? `,r$${i},i$${i}` : ""))
             .join("")}){` +
@@ -190,14 +190,14 @@ export async function transform(
                 (resolved.format === "commonjs" ||
                 resolved.format === "typescript:commonjs"
                   ? "/@cjsInit"
-                  : "") + webify(url, base)
+                  : "") + webify(url, base),
               );
             }
           },
           dynamicImportFunction: `return import(${JSON.stringify(
             "/@dynamic?base=" +
               encodeURIComponent(webify(file, base)) +
-              "&specifier="
+              "&specifier=",
           )} + encodeURIComponent(specifier))`,
         }).code;
       }
