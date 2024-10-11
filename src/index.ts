@@ -1,3 +1,9 @@
+import type {
+  FS,
+  ResolveResult,
+} from "@easrng/import-meta-resolve/lib/resolve.js";
+import { defaultResolve as customDefaultResolve } from "@easrng/import-meta-resolve/lib/resolve.js";
+
 export type Config = {
   serve?: {
     port?: number;
@@ -44,6 +50,29 @@ const unwebify = (url: URL, sourceDir: URL, baseDir: URL) => {
     return new URL("." + url.pathname, sourceDir);
   }
 };
+
+export function resolve(
+  specifier: string,
+  fs: FS,
+  context: {
+    parentURL?: string;
+    conditions?: Array<string>;
+  },
+  rewriteUrls?: (url: string) => string,
+): ResolveResult {
+  const urlMode = specifier.endsWith("?url");
+  if (urlMode) specifier = specifier.slice(0, -1 * "?url".length);
+  let resolved = customDefaultResolve(specifier, fs, context);
+  if (urlMode) {
+    return {
+      url:
+        "data:text/javascript;charset=utf-8,export default" +
+        JSON.stringify(rewriteUrls ? rewriteUrls(resolved.url) : resolved.url),
+      format: "module",
+    };
+  }
+  return resolved;
+}
 
 export const createRequestHandler = async (
   configURL: URL,

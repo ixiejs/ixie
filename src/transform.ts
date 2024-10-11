@@ -1,7 +1,6 @@
 import path from "@easrng/import-meta-resolve/lib/node-path.js";
 import { HTMLRewriterWrapper } from "htmlrewriter/dist/html_rewriter_wrapper.js";
 import initHTMLRewriter from "htmlrewriter/dist/html_rewriter.js";
-import { defaultResolve } from "@easrng/import-meta-resolve/lib/resolve.js";
 import { defaultGetFormatWithoutErrors } from "@easrng/import-meta-resolve/lib/get-format.js";
 import { coreTransform, type Transformers } from "@easrng/sucrase/core.js";
 import ESMImportTransformer from "@easrng/sucrase/transformers/ESMImportTransformer.js";
@@ -10,8 +9,9 @@ import type { FS } from "@easrng/import-meta-resolve/lib/resolve.js";
 import CJSImportTransformer from "@easrng/sucrase/transformers/CJSImportTransformer.js";
 import CJSImportProcessor from "@easrng/sucrase/CJSImportProcessor.js";
 import { analyzeCommonJS } from "@endo/cjs-module-analyzer";
+import { resolve as ixieResolve } from "./index.js";
+import wasmURL from "htmlrewriter/dist/html_rewriter_bg.wasm?url";
 
-const wasmURL = import.meta.resolve("htmlrewriter/dist/html_rewriter_bg.wasm");
 const HTMLRewriter = HTMLRewriterWrapper(
   initHTMLRewriter(
     wasmURL.startsWith("file:")
@@ -22,9 +22,11 @@ const HTMLRewriter = HTMLRewriterWrapper(
   ),
 );
 
-const webify = (url: URL, base: URL) => {
+const webify = function (this: URL, url: string | URL) {
+  if (typeof url === "string") url = new URL(url);
+  if (url.protocol !== "file:") return url.href;
   const urlSegs = url.pathname.split("/");
-  const baseSegs = base.pathname.slice(0, -1).split("/");
+  const baseSegs = this.pathname.slice(0, -1).split("/");
   while (baseSegs.length && urlSegs.length && baseSegs[0] === urlSegs[0]) {
     baseSegs.shift();
     urlSegs.shift();
@@ -39,9 +41,14 @@ export async function dynamic(
   specifier: string,
 ) {
   try {
-    const resolved = defaultResolve(specifier, fs, {
-      parentURL: parent.href,
-    });
+    const resolved = ixieResolve(
+      specifier,
+      fs,
+      {
+        parentURL: parent.href,
+      },
+      webify.bind(base),
+    );
     let url = new URL(resolved.url);
     return new Response(null, {
       status: 302,
@@ -50,7 +57,7 @@ export async function dynamic(
           (resolved.format === "commonjs" ||
           resolved.format === "typescript:commonjs"
             ? "/@cjsInit"
-            : "") + webify(url, base),
+            : "") + webify.call(base, url),
       },
     });
   } catch (e) {
@@ -87,11 +94,16 @@ export async function transform(
                   if (src[0] !== "/") new URL(src);
                 } catch {
                   let url = new URL(
-                    defaultResolve(src, fs, {
-                      parentURL: file.href,
-                    }).url,
+                    ixieResolve(
+                      src,
+                      fs,
+                      {
+                        parentURL: file.href,
+                      },
+                      webify.bind(base),
+                    ).url,
                   );
-                  element.setAttribute("src", webify(url, base));
+                  element.setAttribute("src", webify.call(base, url));
                 }
               }
             } catch (e) {
@@ -115,10 +127,7 @@ export async function transform(
     case ".mjs":
     case ".cjs":
       const script = await response.text();
-      const format = defaultGetFormatWithoutErrors(file, {
-        parentURL: "",
-        readFileSync: fs.readFileSync,
-      });
+      const format = defaultGetFormatWithoutErrors(file, fs.readFileSync);
       let result: string;
       if (format === "commonjs" || format === "typescript:commonjs") {
         const commonjs =
@@ -139,13 +148,20 @@ export async function transform(
         );
         const requires: string[] = cjsInfo.requires;
         const exportsList = exports.length ? "," + exports.join(",") : "";
-        const module = await import("node:module");
-        const url = await import("node:url");
-        const fileRequire = module.default.createRequire(file);
         const requireImports = requires.map((name, id) => {
           try {
+            const resolved = ixieResolve(
+              name,
+              fs,
+              {
+                parentURL: file.href,
+                conditions: ["require"],
+              },
+              webify.bind(base),
+            );
+            let url = new URL(resolved.url);
             return `import{default as r$${id},__cjsInit as i$${id}} from ${JSON.stringify(
-              webify(url.pathToFileURL(fileRequire.resolve(name)) as any, base),
+              webify.call(base, url as any),
             )};`;
           } catch {
             return "";
@@ -182,21 +198,26 @@ export async function transform(
               if (specifier[0] !== "/") new URL(specifier);
               return JSON.stringify(specifier);
             } catch {
-              const resolved = defaultResolve(specifier, fs, {
-                parentURL: file.href,
-              });
+              const resolved = ixieResolve(
+                specifier,
+                fs,
+                {
+                  parentURL: file.href,
+                },
+                webify.bind(base),
+              );
               let url = new URL(resolved.url);
               return JSON.stringify(
                 (resolved.format === "commonjs" ||
                 resolved.format === "typescript:commonjs"
                   ? "/@cjsInit"
-                  : "") + webify(url, base),
+                  : "") + webify.call(base, url),
               );
             }
           },
           dynamicImportFunction: `return import(${JSON.stringify(
             "/@dynamic?base=" +
-              encodeURIComponent(webify(file, base)) +
+              encodeURIComponent(webify.call(base, file)) +
               "&specifier=",
           )} + encodeURIComponent(specifier))`,
         }).code;

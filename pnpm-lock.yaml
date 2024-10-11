@@ -9,26 +9,23 @@ importers:
   .:
     dependencies:
       '@easrng/import-meta-resolve':
-        specifier: ^1.0.0
-        version: 1.0.0
+        specifier: ^2.1.0
+        version: 2.1.0
       '@easrng/sucrase':
         specifier: ^2.0.5
         version: 2.0.5
       '@endo/cjs-module-analyzer':
         specifier: ^1.0.7
         version: 1.0.7
-      chalk:
-        specifier: ^5.3.0
-        version: 5.3.0
-      dedent:
-        specifier: ^1.5.3
-        version: 1.5.3
       htmlrewriter:
         specifier: ^0.0.12
         version: 0.0.12
       pirates:
         specifier: ^4.0.6
         version: 4.0.6
+      tinyrainbow:
+        specifier: ^1.2.0
+        version: 1.2.0
       wrap-ansi:
         specifier: ^9.0.0
         version: 9.0.0
@@ -37,8 +34,8 @@ importers:
         specifier: ^22.5.5
         version: 22.5.5
       ixie:
-        specifier: ^0.0.9
-        version: 0.0.9
+        specifier: ^0.0.10
+        version: 0.0.10
       typescript:
         specifier: ^5.6.2
         version: 5.6.2
@@ -47,6 +44,9 @@ packages:
 
   '@easrng/import-meta-resolve@1.0.0':
     resolution: {integrity: sha512-LE0CpI1IU3XQdQ/w8TD25ZzglYuhXu83k6z3SpeYeIJKtvKyUBsXPX2J7TxiEBF9VCSurbnFUhgyFWZSZ87erg==}
+
+  '@easrng/import-meta-resolve@2.1.0':
+    resolution: {integrity: sha512-chsNE7A++CyQ8SKMYI30kr6GZSgCyA/AGdPrEEXEF4Vp2T+YKOzjTSiYJOlEU7UshStIkXGJHom/9CRFBhRIug==}
 
   '@easrng/sucrase@2.0.5':
     resolution: {integrity: sha512-Vb9GAJQD8Z0R74gEzintDr+dHNevvSYJGlbSULculo0npfORBPr92uu9kyjzYkkyU25LWl1E1Uyd9VTqhgfXFg==}
@@ -106,8 +106,8 @@ packages:
   htmlrewriter@0.0.12:
     resolution: {integrity: sha512-Tw+wORUlNL9+JQCIo7J4SuX/T3M1xRAC/0XaifnRPLHCX95jbZy/0CI06n7BhuFQJhSdNA7ZoxnStJmF31FZRw==}
 
-  ixie@0.0.9:
-    resolution: {integrity: sha512-enydV2CfXXRGOw4unPuW395kALmNPtrI/ogJicWIZxUI6toaNvsaRGuKe2L/uZn8Ay7mqvkfSozPG1tKBSUd6w==}
+  ixie@0.0.10:
+    resolution: {integrity: sha512-ayeW5s6sI56zKoPrJKucCh3e66qepb+Ba+bNkm7xe7cyP+q0NgdWv3uOqv4bHdmeSRRmw28HNQuoAi3z5ONQyA==}
     hasBin: true
 
   lines-and-columns@1.2.4:
@@ -125,6 +125,10 @@ packages:
     resolution: {integrity: sha512-iq6eVVI64nQQTRYq2KtEg2d2uU7LElhTJwsH4YzIHZshxlgZms/wIc4VoDQTlG/IvVIrBKG06CrZnp0qv7hkcQ==}
     engines: {node: '>=12'}
 
+  tinyrainbow@1.2.0:
+    resolution: {integrity: sha512-weEDEq7Z5eTHPDh4xjX789+fHfF+P8boiFB+0vbWzpbnbsEr/GRaohi/uMKxg8RZMXnl1ItAi/IUHWMsjDV7kQ==}
+    engines: {node: '>=14.0.0'}
+
   typescript@5.6.2:
     resolution: {integrity: sha512-NW8ByodCSNCwZeghjN3o+JX5OFH0Ojg6sadjEKY4huZ52TqbJTJnDo5+Tw98lSy63NZvi4n+ez5m2u5d4PkZyw==}
     engines: {node: '>=14.17'}
@@ -140,6 +144,8 @@ packages:
 snapshots:
 
   '@easrng/import-meta-resolve@1.0.0': {}
+
+  '@easrng/import-meta-resolve@2.1.0': {}
 
   '@easrng/sucrase@2.0.5':
     dependencies:
@@ -183,12 +189,14 @@ snapshots:
 
   htmlrewriter@0.0.12: {}
 
-  ixie@0.0.9:
+  ixie@0.0.10:
     dependencies:
       '@easrng/import-meta-resolve': 1.0.0
       '@easrng/sucrase': 2.0.5
+      '@endo/cjs-module-analyzer': 1.0.7
       chalk: 5.3.0
       dedent: 1.5.3
+      htmlrewriter: 0.0.12
       pirates: 4.0.6
       wrap-ansi: 9.0.0
     transitivePeerDependencies:
@@ -207,6 +215,8 @@ snapshots:
   strip-ansi@7.1.0:
     dependencies:
       ansi-regex: 6.1.0
+
+  tinyrainbow@1.2.0: {}
 
   typescript@5.6.2: {}
 

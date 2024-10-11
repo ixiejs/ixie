@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-import chalk from "chalk";
+import color from "tinyrainbow";
 import process from "node:process";
 import type { WriteStream } from "node:tty";
 import { spawnSync } from "node:child_process";
 import wrapAnsi from "wrap-ansi";
-import dedent from "dedent";
 import { resolve } from "node:path";
 import * as fs from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -23,30 +22,23 @@ function colorLog(color: (_: string) => string, tag: string, message: string) {
   );
 }
 function logErr(message: string) {
-  process.stderr.write(colorLog(chalk.red, "oops", message));
+  process.stderr.write(colorLog(color.red, "oops", message));
 }
 function logWarn(message: string) {
-  process.stderr.write(colorLog(chalk.yellow, "warn", message));
+  process.stderr.write(colorLog(color.yellow, "warn", message));
 }
 
 function banner(stream: WriteStream) {
-  stream.write(colorLog(chalk.magenta, "ixie", "JS tooling for today"));
+  stream.write(colorLog(color.magenta, "ixie", "JS tooling for today"));
 }
 function help(stream: WriteStream) {
   stream.write(
     colorLog(
-      chalk.blue,
+      color.blue,
       "help",
-      dedent`
-    usage:
-      ixie <command>
-    commands:${
-      "\n" +
-      Object.keys(commands)
-        .map((e) => "      " + e)
-        .join("\n")
-    }
-  `,
+      `usage:\n  ixie <command>\ncommands:\n${Object.keys(commands)
+        .map((e) => `      ${e}\n`)
+        .join("")}`,
     ),
   );
 }
@@ -61,14 +53,7 @@ const helpAliases: Record<string, string> = {
 function run(argv: string[], env?: Record<string, string>): number {
   function help(stream: WriteStream) {
     stream.write(
-      colorLog(
-        chalk.blue,
-        "help",
-        dedent`
-          usage:
-            ixie run <file> [args...]
-        `,
-      ),
+      colorLog(color.blue, "help", `usage:\n  ixie run <file> [args...]\n`),
     );
   }
   if (helpAliases[argv[0]!] === "help") {
@@ -119,7 +104,7 @@ async function serve(): Promise<number> {
     ...(config.serve || {}),
   });
   process.stdout.write(
-    colorLog(chalk.magenta, "ixie", "listening at " + address.url),
+    colorLog(color.magenta, "ixie", "listening at " + address.url),
   );
 
   return 0;

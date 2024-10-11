@@ -1,4 +1,3 @@
-import { defaultResolve as customDefaultResolve } from "@easrng/import-meta-resolve/lib/resolve.js";
 import { defaultGetFormatWithoutErrors } from "@easrng/import-meta-resolve/lib/get-format.js";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
@@ -6,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { coreTransform } from "@easrng/sucrase/core.js";
 import ESMImportTransformer from "@easrng/sucrase/transformers/ESMImportTransformer.js";
 import TypeScriptTransformer from "@easrng/sucrase/transformers/TypeScriptTransformer.js";
+import { resolve as ixieResolve } from "./index.js";
 
 type ResolveHook = (
   specifier: string,
@@ -35,26 +35,22 @@ export const resolve: ResolveHook = async (
   defaultResolve,
 ) => {
   try {
-    return await defaultResolve(specifier, context, defaultResolve);
-  } catch (e) {
-    try {
-      const result = customDefaultResolve(specifier, fs, context);
+    const result = ixieResolve(specifier, fs, context);
+    if (result)
       return {
         url: result.url,
         format: result.format?.split(":")?.at(-1),
+        shortCircuit: true,
       };
-    } catch {
-      throw e;
-    }
+    throw null;
+  } catch (e) {
+    return await defaultResolve(specifier, context, defaultResolve);
   }
 };
 export const load: LoadHook = async (urlString, context, defaultLoad) => {
   const url = new URL(urlString);
   if (url.protocol === "file:" && /\.[mc]?ts$/.test(url.pathname)) {
-    const format = defaultGetFormatWithoutErrors(url, {
-      parentURL: "",
-      readFileSync: fs.readFileSync,
-    });
+    const format = defaultGetFormatWithoutErrors(url, fs.readFileSync);
     if (format === "typescript:module") {
       const source = await readFile(url, "utf-8");
       return {
