@@ -1,0 +1,1 @@
+module.exports = require("@jspm/core/nodelibs/stream").default

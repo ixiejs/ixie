@@ -1,6 +1,6 @@
 {
   "name": "ixie",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "scripts": {
     "prepack": "pnpm run lint && pnpm run build",
     "build": "rm -rf dist; mkdir dist; cp src/types.d.ts dist/types.d.ts; tsc -p tsconfig.build.json && chmod +x ./dist/cli.js && ./dist/cli.js run ./scripts/mimes.ts",
@@ -20,8 +20,10 @@
   },
   "homepage": "https://github.com/ixiejs/ixie#readme",
   "devDependencies": {
+    "@npmcli/arborist": "^8.0.0",
+    "@jspm/core": "^2.1.0",
     "@types/node": "^22.5.5",
-    "ixie": "^0.0.11",
+    "ixie": "^0.0.12",
     "typescript": "^5.6.2"
   },
   "files": [

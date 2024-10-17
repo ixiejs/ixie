@@ -25,5 +25,6 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "noUnusedLocals": true,
   },
 }

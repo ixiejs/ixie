@@ -9,6 +9,7 @@ import * as fs from "node:fs";
 import { pathToFileURL } from "node:url";
 import serveAuto, { readFile } from "./serve.js";
 import { type Config, createRequestHandler } from "./index.js";
+import { merge } from "./util.js";
 
 function colorLog(color: (_: string) => string, tag: string, message: string) {
   return (
@@ -50,7 +51,10 @@ const helpAliases: Record<string, string> = {
   "-help": "help",
 };
 
-function run(argv: string[], env?: Record<string, string>): number {
+async function run(
+  argv: string[],
+  env?: Record<string, string>,
+): Promise<number> {
   function help(stream: WriteStream) {
     stream.write(
       colorLog(color.blue, "help", `usage:\n  ixie run <file> [args...]\n`),
@@ -67,13 +71,32 @@ function run(argv: string[], env?: Record<string, string>): number {
     help(process.stderr);
     return 1;
   }
+  let config: { config: Config; url: URL } | undefined;
+  try {
+    const loaded = await loadConfig();
+    if (loaded) {
+      config = loaded;
+    }
+  } catch (e: any) {
+    logErr(`failed to load your ixie config at ${e.configPath}:\n${e.error}`);
+    return 1;
+  }
   try {
     argv[0] = resolve(argv[0]!);
   } catch {}
   const rtArgs =
     "Bun" in globalThis
       ? ["run"]
-      : ["--import", new URL("register.js", import.meta.url).href];
+      : [
+          "--import",
+          new URL(
+            "register.js" +
+              (config
+                ? "?config=" + encodeURIComponent(JSON.stringify(config))
+                : ""),
+            import.meta.url,
+          ).href,
+        ];
   return (
     spawnSync(process.execPath, [...rtArgs, ...argv], {
       stdio: "inherit",
@@ -99,6 +122,7 @@ async function serve(): Promise<number> {
     return 1;
   }
   const { config, url: configURL } = config_;
+  merge(config, config?.serve?.config);
   const address = await serveAuto({
     fetch: await createRequestHandler(configURL, config, fs, readFile),
     ...(config.serve || {}),

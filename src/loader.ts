@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import { coreTransform } from "@easrng/sucrase/core.js";
 import ESMImportTransformer from "@easrng/sucrase/transformers/ESMImportTransformer.js";
 import TypeScriptTransformer from "@easrng/sucrase/transformers/TypeScriptTransformer.js";
-import { resolve as ixieResolve } from "./index.js";
+import { resolve as ixieResolve, type Config } from "./index.js";
 
 type ResolveHook = (
   specifier: string,
@@ -29,13 +29,27 @@ type LoadHook = (
   shortCircuit: boolean;
 }>;
 
+let config: { url: string; config: Config };
+
+export const initialize = (data: { config?: typeof config }) => {
+  if (data.config) {
+    config = data.config;
+  }
+};
+
 export const resolve: ResolveHook = async (
   specifier,
   context,
   defaultResolve,
 ) => {
   try {
-    const result = ixieResolve(specifier, fs, context);
+    const result = ixieResolve(
+      specifier,
+      fs,
+      context,
+      undefined,
+      config?.config?.resolve,
+    );
     if (result)
       return {
         url: result.url,

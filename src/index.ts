@@ -3,15 +3,27 @@ import type {
   ResolveResult,
 } from "@easrng/import-meta-resolve/lib/resolve.js";
 import { defaultResolve as customDefaultResolve } from "@easrng/import-meta-resolve/lib/resolve.js";
+import { merge, regexEscape } from "./util.js";
 
 export type Config = {
   serve?: {
     port?: number;
     hostname?: string;
     signal?: AbortSignal;
+    config?: Omit<Config, "serve">;
   };
   publicDir?: string;
   sourceDir?: string;
+  resolve?: {
+    alias?: {
+      [prefix: string]:
+        | string
+        | {
+            [condition: string]: string;
+          };
+    };
+    conditions?: string[];
+  };
 };
 type ConfigDefinition =
   | Config
@@ -28,9 +40,9 @@ function ensureDirectory(...urls: URL[]) {
   }
 }
 
-const unwebify = (url: URL, sourceDir: URL, baseDir: URL) => {
-  if (url.pathname.startsWith("/@../")) {
-    const seggs = url.pathname.split("/").slice(1);
+const unwebify = (urlPath: string, sourceDir: URL, baseDir: URL) => {
+  if (urlPath.startsWith("/@../")) {
+    const seggs = urlPath.split("/").slice(1);
     let count = 0;
     while (seggs[0] === "@..") {
       count++;
@@ -47,9 +59,34 @@ const unwebify = (url: URL, sourceDir: URL, baseDir: URL) => {
       throw new Error("unauthorized");
     }
   } else {
-    return new URL("." + url.pathname, sourceDir);
+    return new URL("." + urlPath, sourceDir);
   }
 };
+
+type AliasMap = NonNullable<NonNullable<Config["resolve"]>["alias"]>;
+const aliasCache = new WeakMap<AliasMap, RegExp>();
+function matchAlias(
+  aliasMap: AliasMap,
+  conditions: Array<string>,
+  specifier: string,
+) {
+  let regex = aliasCache.get(aliasMap);
+  if (!regex) {
+    regex = new RegExp(
+      `^(${Object.keys(aliasMap).map(regexEscape).join("|")})(\\/.*|$)`,
+    );
+    aliasCache.set(aliasMap, regex);
+  }
+  const match = specifier.match(regex);
+  if (!match) return specifier;
+  const mappedTo = aliasMap[match[1]!]!;
+  if (typeof mappedTo === "string") return mappedTo + match[2]!;
+  for (const key in mappedTo) {
+    if (key === "default" || conditions.includes(key))
+      return mappedTo[key] + match[2]!;
+  }
+  return specifier;
+}
 
 export function resolve(
   specifier: string,
@@ -59,10 +96,31 @@ export function resolve(
     conditions?: Array<string>;
   },
   rewriteUrls?: (url: string) => string,
+  config?: Config["resolve"],
 ): ResolveResult {
   const urlMode = specifier.endsWith("?url");
   if (urlMode) specifier = specifier.slice(0, -1 * "?url".length);
-  let resolved = customDefaultResolve(specifier, fs, context);
+  if (config?.alias)
+    specifier = matchAlias(config.alias, context.conditions || [], specifier);
+  let resolved = customDefaultResolve(specifier, fs, {
+    parentURL: context.parentURL,
+    conditions: [...(context.conditions || []), ...(config?.conditions || [])],
+  });
+  if (config?.alias) {
+    const newSpecifier = matchAlias(
+      config.alias,
+      context.conditions || [],
+      resolved.url,
+    );
+    if (newSpecifier !== resolved.url)
+      resolved = customDefaultResolve(newSpecifier, fs, {
+        parentURL: context.parentURL,
+        conditions: [
+          ...(context.conditions || []),
+          ...(config?.conditions || []),
+        ],
+      });
+  }
   if (urlMode) {
     return {
       url:
@@ -90,7 +148,7 @@ export const createRequestHandler = async (
     const dynamicServe = async () => {
       if (url.pathname === "/@dynamic") {
         const parent = unwebify(
-          new URL(url.searchParams.get("base")!, "https://x"),
+          url.searchParams.get("base")!,
           sourceDir,
           baseDir,
         );
@@ -99,6 +157,7 @@ export const createRequestHandler = async (
           sourceDir,
           fs,
           url.searchParams.get("specifier")!,
+          config,
         );
       } else if (url.pathname.startsWith("/@cjsInit/")) {
         const specifier = JSON.stringify(
@@ -112,12 +171,38 @@ export const createRequestHandler = async (
             },
           },
         );
+      } else if (url.pathname.startsWith("/@cjsInterop/")) {
+        const specifier = JSON.stringify(
+          url.pathname.slice("/@cjsInterop".length),
+        );
+        return new Response(
+          `export * from ${specifier};\nexport { default } from ${specifier};\nexport const __esModule = true;`,
+          {
+            headers: {
+              "content-type": "text/javascript",
+            },
+          },
+        );
+      } else if (url.pathname.startsWith("/@json/")) {
+        const specifier = url.pathname.slice("/@json".length);
+        const file = unwebify(specifier, sourceDir, baseDir);
+        return new Response(
+          `export default ` +
+            JSON.stringify(
+              await (await readFile(file, request.headers)).json(),
+            ),
+          {
+            headers: {
+              "content-type": "text/javascript",
+            },
+          },
+        );
       }
     };
     const sourceServe = async () => {
       let file: URL;
       try {
-        file = unwebify(url, sourceDir, baseDir);
+        file = unwebify(url.pathname, sourceDir, baseDir);
       } catch {
         return new Response(
           "unauthorized: you can only access files in the directory your ixie config is in or below!",
@@ -132,7 +217,7 @@ export const createRequestHandler = async (
       } catch {
         return;
       }
-      return transform(file, sourceDir, response, fs);
+      return transform(file, sourceDir, response, fs, config);
     };
     const publicServe = async () => {
       try {
@@ -150,7 +235,7 @@ export const createRequestHandler = async (
       } catch {
         return;
       }
-      return transform(file, sourceDir, response, fs);
+      return transform(file, sourceDir, response, fs, config);
     };
     const public404 = async () => {
       try {
@@ -192,6 +277,7 @@ export async function createServer(
       import("./serve.js"),
     ]);
   base = base || (pathToFileURL(process.cwd() + "/") as unknown as URL);
+  merge(config, config?.serve?.config);
   return serveAuto({
     fetch: await createRequestHandler(base, config, fs, readFile),
     ...(config.serve || {}),

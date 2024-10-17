@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "imports": {
+    "#test": {
+      "browser": "./src/test.browser.ts",
+      "default": "./src/test.default.ts"
+    }
+  }
+}
